@@ -1,0 +1,282 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Ro‘yxatdan o‘tish</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="{% static 'images/LOGOTIP.png' %}" type="image/x-icon">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Icon -->
+    <link rel="stylesheet" href="{% static 'fonts/material-icon/css/material-design-iconic-font.min.css' %}">
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+        body {
+            background-color: #f4f7fc;
+        }
+
+        .signup-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #fafafa;
+            width: 100%;
+        }
+
+        .signup-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 900px;
+            max-width: 700px;
+        }
+
+        .signup-content h2 {
+            font-size: 28px;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .form-group label {
+            font-weight: bold;
+        }
+
+        .form-control {
+            border-radius: 25px;
+            padding: 10px;
+        }
+
+        .form-button {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .form-submit {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            border-radius: 25px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .form-submit:hover {
+            background-color: #45a049;
+        }
+
+        .signup-image {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .signup-image-link {
+            text-decoration: none;
+            color: #4CAF50;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .signup-image-link:hover {
+            text-decoration: underline;
+        }
+
+        .camera-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #camera {
+            width: 320px;
+            height: 240px;
+            background-color: #000;
+            border-radius: 8px;
+        }
+
+        #capturedImage {
+            width: 320px;
+            height: 240px;
+            margin-top: 10px;
+            display: none;
+            border-radius: 8px;
+        }
+
+        /* Responsiv dizayn */
+        @media (max-width: 768px) {
+            .signup-content {
+                padding: 20px;
+            }
+
+            .signup-content h2 {
+                font-size: 24px;
+            }
+
+            .form-submit {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .signup-content h2 {
+                font-size: 20px;
+            }
+
+            .form-submit {
+                padding: 8px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="signup-container">
+    <div class="signup-content">
+        <form method="POST" id="signup-form" enctype="multipart/form-data">
+            {% csrf_token %}
+            <h2 class="form-title">Ro‘yxatdan o‘tish</h2>
+
+            <!-- Role selection dropdown -->
+            <div class="form-group">
+                <label for="role"></label>
+                <select name="role" id="role" class="form-control" onchange="toggleRoleFields()" required>
+                    <option value="">Roli tanlang</option>
+                    <option value="student">Talaba</option>
+                    <option value="teacher">O‘qituvchi</option>
+                </select>
+            </div>
+
+            <!-- Name and email fields -->
+            <div class="form-group">
+                <label for="firstname"></label>
+                <input type="text" name="firstname" id="firstname" class="form-control" placeholder="Ismingiz" required>
+            </div>
+            <div class="form-group">
+                <label for="lastname"></label>
+                <input type="text" name="lastname" id="lastname" class="form-control" placeholder="Familyangiz"
+                       required>
+            </div>
+            <div class="form-group">
+                <label for="middlename"></label>
+                <input type="text" name="middlename" id="middlename" class="form-control" placeholder="Otangizni ismi"
+                       required>
+            </div>
+            <div class="form-group">
+                <label for="email"></label>
+                <input type="email" name="email" id="email" class="form-control" placeholder="Email manzilingiz"
+                       required>
+            </div>
+            <div class="form-group">
+                <label for="pass"></label>
+                <input type="password" name="pass" id="pass" class="form-control" placeholder="Parol" required>
+            </div>
+            <div class="form-group">
+                <label for="re_pass"></label>
+                <input type="password" name="re_pass" id="re_pass" class="form-control"
+                       placeholder="Parolni qayta kiriting" required>
+            </div>
+
+            <!-- Fan nomi (O'qituvchi uchun) -->
+            <div class="form-group" id="teacherSubject" style="display:none;">
+                <label for="subject"></label>
+                <input type="text" name="subject" id="subject" class="form-control" placeholder="Fan nomi" required>
+            </div>
+
+            <!-- Camera section for capturing photo -->
+            <div class="camera-section">
+                <button type="button" onclick="startCamera()" class="btn btn-success">Kamerani yoqing</button>
+                <video id="camera" autoplay></video>
+                <button type="button" onclick="capturePhoto()" class="btn btn-primary">Rasmni olish</button>
+                <img id="capturedImage" src="" alt="Captured Image">
+                <input type="hidden" name="captured_photo" id="captured_photo">
+            </div>
+
+            <!-- Submit button -->
+            <div class="form-button">
+                <input type="submit" name="signup" id="signup" class="form-submit" value="Ro‘yxatdan o‘tish">
+            </div>
+        </form>
+        <div class="signup-image">
+            <figure><img src="{% static 'images/signup-image.jpg' %}" alt="sign up image"></figure>
+            <a href="{% url 'signin' %}" class="signup-image-link">Mavjud hisobimga kirish</a>
+        </div>
+    </div>
+</div>
+
+<!-- JS -->
+<script src="{% static 'vendor/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
+
+<script>
+    let video = document.getElementById('camera');
+    let capturedImage = document.getElementById('capturedImage');
+    let capturedPhotoInput = document.getElementById('captured_photo');
+    let stream;
+
+    function startCamera() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({video: true}).then(function (s) {
+                stream = s;
+                video.srcObject = stream;
+            }).catch(function (error) {
+                alert("Kamerani yoqishda xatolik yuz berdi: " + error.message);
+            });
+        } else {
+            alert("Brauzer kamerani qo'llab-quvvatlamaydi.");
+        }
+    }
+
+    function capturePhoto() {
+        let canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        let context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Rasmni Base64 formatida olish
+        let dataURL = canvas.toDataURL('image/png');
+        capturedPhotoInput.value = dataURL;
+
+        // Rasmni ko'rsatish
+        capturedImage.src = dataURL;
+        capturedImage.style.display = 'block';
+        video.style.display = 'none';  // Kamerani yashirish
+
+        // Kamerani o'chirish
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    // O'qituvchi roli tanlanganda fan nomi bo'limini ko'rsatish
+    function toggleRoleFields() {
+    const role = document.getElementById('role').value;
+    const subjectField = document.getElementById('subject');
+    const teacherSubject = document.getElementById('teacherSubject');
+
+    if (role === 'teacher') {
+        teacherSubject.style.display = 'block';
+        subjectField.setAttribute('required', 'required');
+    } else {
+        teacherSubject.style.display = 'none';
+        subjectField.removeAttribute('required');
+    }
+}
+</script>
+
+</body>
+</html>

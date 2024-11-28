@@ -105,6 +105,7 @@
             height: 240px;
             background-color: #000;
             border-radius: 8px;
+            margin-bottom: 10px;
         }
 
         #capturedImage {
@@ -113,6 +114,11 @@
             margin-top: 10px;
             display: none;
             border-radius: 8px;
+        }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
         }
 
         /* Responsiv dizayn */
@@ -152,7 +158,6 @@
 
             <!-- Role selection dropdown -->
             <div class="form-group">
-                <label for="role"></label>
                 <select name="role" id="role" class="form-control" onchange="toggleRoleFields()" required>
                     <option value="">Roli tanlang</option>
                     <option value="student">Talaba</option>
@@ -162,37 +167,30 @@
 
             <!-- Name and email fields -->
             <div class="form-group">
-                <label for="firstname"></label>
                 <input type="text" name="firstname" id="firstname" class="form-control" placeholder="Ismingiz" required>
             </div>
             <div class="form-group">
-                <label for="lastname"></label>
                 <input type="text" name="lastname" id="lastname" class="form-control" placeholder="Familyangiz"
                        required>
             </div>
             <div class="form-group">
-                <label for="middlename"></label>
                 <input type="text" name="middlename" id="middlename" class="form-control" placeholder="Otangizni ismi"
                        required>
             </div>
             <div class="form-group">
-                <label for="email"></label>
                 <input type="email" name="email" id="email" class="form-control" placeholder="Email manzilingiz"
                        required>
             </div>
             <div class="form-group">
-                <label for="pass"></label>
                 <input type="password" name="pass" id="pass" class="form-control" placeholder="Parol" required>
             </div>
             <div class="form-group">
-                <label for="re_pass"></label>
                 <input type="password" name="re_pass" id="re_pass" class="form-control"
                        placeholder="Parolni qayta kiriting" required>
             </div>
 
             <!-- Fan nomi (O'qituvchi uchun) -->
             <div class="form-group" id="teacherSubject" style="display:none;">
-                <label for="subject"></label>
                 <input type="text" name="subject" id="subject" class="form-control" placeholder="Fan nomi" required>
             </div>
 
@@ -205,13 +203,25 @@
                 <input type="hidden" name="captured_photo" id="captured_photo">
             </div>
 
+            <!-- Error Message for Multiple Faces -->
+            <div id="face-error" class="error-message" style="display:none;">Bir nechta yuzlar aniqlanmoqda, faqat bitta
+                yuzni tanlang.
+            </div>
+
             <!-- Submit button -->
             <div class="form-button">
                 <input type="submit" name="signup" id="signup" class="form-submit" value="Ro‘yxatdan o‘tish">
             </div>
+            {% if messages %}
+                <div class="alert alert-danger">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </form>
+
         <div class="signup-image">
-            <figure><img src="{% static 'images/signup-image.jpg' %}" alt="sign up image"></figure>
             <a href="{% url 'signin' %}" class="signup-image-link">Mavjud hisobimga kirish</a>
         </div>
     </div>
@@ -227,7 +237,11 @@
     let capturedPhotoInput = document.getElementById('captured_photo');
     let stream;
 
+    // Kamerani ishga tushirish
     function startCamera() {
+        let video = document.getElementById('camera');
+        let stream;
+
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             navigator.mediaDevices.getUserMedia({video: true}).then(function (s) {
                 stream = s;
@@ -240,6 +254,7 @@
         }
     }
 
+    // Rasmni olish
     function capturePhoto() {
         let canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -260,22 +275,46 @@
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
+
+        // Rasmni serverga yuborish (AJAX yordamida)
+        fetch('/check-face/', {
+            method: 'POST',
+            body: JSON.stringify({
+                captured_image: dataURL,
+                student_id_face: document.getElementById('student_id_face').value
+            }),
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.match) {
+                    alert("Yuz mos keldi!");
+                } else {
+                    alert("Yuz mos kelmadi.");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
     }
 
-    // O'qituvchi roli tanlanganda fan nomi bo'limini ko'rsatish
+    // O'qituvchi roli tanlanganda fan nomi ko'rsatish
     function toggleRoleFields() {
-    const role = document.getElementById('role').value;
-    const subjectField = document.getElementById('subject');
-    const teacherSubject = document.getElementById('teacherSubject');
+        const role = document.getElementById('role').value;
+        const subjectField = document.getElementById('subject');
+        const teacherSubject = document.getElementById('teacherSubject');
 
-    if (role === 'teacher') {
-        teacherSubject.style.display = 'block';
-        subjectField.setAttribute('required', 'required');
-    } else {
-        teacherSubject.style.display = 'none';
-        subjectField.removeAttribute('required');
+        if (role === 'teacher') {
+            teacherSubject.style.display = 'block';
+            subjectField.setAttribute('required', 'required');
+        } else {
+            teacherSubject.style.display = 'none';
+            subjectField.removeAttribute('required');
+        }
     }
-}
 </script>
 
 </body>

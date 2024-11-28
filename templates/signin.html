@@ -16,7 +16,7 @@
     <!-- Font Icon -->
     <link rel="stylesheet" href="{% static 'fonts/material-icon/css/material-design-iconic-font.min.css' %}">
 
-    <!-- Main CSS -->
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
@@ -27,31 +27,30 @@
         <div class="signin-content">
             <div class="signin-image">
                 <figure><img src="{% static 'images/signin-image.jpg' %}" alt="sign in image"></figure>
-                <a href="{% url 'signup' %}" class="signup-image-link">Ro‘yxatdan o‘tish</a>
+                <a href="{% url 'signup' %}" class="signup-image-link">Ro'yxatdan o'ting</a>
             </div>
 
             <div class="signin-form">
-                <h2 class="form-title">Tizimga kirish</h2>
+                <h2 class="form-title">Kirish</h2>
 
-                <!-- Kirish usulini tanlash -->
-                <div class="form-group">
+                <!-- Kirish usulini tanlash uchun dropdown -->
+                <div class="form-group dropdown mb-4">
                     <label for="loginMethod"></label>
-                    <select name="loginMethod" id="loginMethod" class="form-control" onchange="toggleLoginMethod()" required>
-                        <option value="">Kirish usulini tanlang</option>
+                    <select class="form-control" id="loginMethod" onchange="toggleLoginMethod()" required>
                         <option value="password">Student ID va Parol</option>
                         <option value="face">Student ID va Yuzni tanish orqali</option>
                     </select>
                 </div>
 
-                <!-- Student ID va Parol orqali kirish -->
-                <form method="POST" class="register-form" id="passwordLogin" style="display:block;">
+                <!-- Student ID va Parol orqali kirish formasi -->
+                <form method="POST" id="passwordLogin" style="display:block;">
                     {% csrf_token %}
                     <div class="form-group">
-                        <label for="student_id"><i class="zmdi zmdi-account material-icons-name"></i></label>
+                        <label for="student_id"></label>
                         <input type="text" name="student_id" id="student_id" class="form-control" placeholder="Student ID" required>
                     </div>
                     <div class="form-group">
-                        <label for="password"><i class="zmdi zmdi-lock"></i></label>
+                        <label for="password"></label>
                         <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
                     </div>
                     <div class="form-group form-button">
@@ -59,22 +58,22 @@
                     </div>
                 </form>
 
-                <!-- Student ID va Yuzni tanish orqali kirish -->
-                <form method="POST" class="register-form" id="faceLogin" style="display:none;">
+                <!-- Student ID va Yuzni tanish orqali kirish formasi -->
+                <form method="POST" id="faceLogin" style="display:none;">
                     {% csrf_token %}
                     <div class="form-group">
-                        <label for="student_id_face"><i class="zmdi zmdi-account material-icons-name"></i> </label>
+                        <label for="student_id_face"></label>
                         <input type="text" name="student_id_face" id="student_id_face" class="form-control" placeholder="Student ID" required>
                     </div>
                     <div class="form-group">
                         <button type="button" class="btn btn-secondary" onclick="startCamera()">Kamerani yoqing</button>
                         <video id="camera" width="320" height="240" autoplay></video>
                         <button type="button" class="btn btn-primary" onclick="capturePhoto()">Rasmni olish</button>
-                        <img id="capturedImage" width="320" height="240" style="display:none;" alt="Captured Image">
+                        <img id="capturedImage" width="320" height="240" style="display:none;" alt="">
                         <input type="hidden" name="captured_photo" id="captured_photo">
                     </div>
                     <div class="form-group form-button">
-                        <input type="submit" name="signin_face" id="signin_face" class="form-submit btn btn-primary" value="Log in">
+                        <input type="submit" name="signin" id="signin" class="form-submit" value="Log in"/>
                     </div>
                 </form>
             </div>
@@ -86,10 +85,9 @@
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-<script src="{% static 'js/main.js' %}"></script>
 
 <script>
-    // Kirish usulini almashtirish funksiyasi
+    // Kirish usulini ko'rsatish funksiyalari
     function toggleLoginMethod() {
         const method = document.getElementById('loginMethod').value;
         if (method === 'password') {

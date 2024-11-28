@@ -15,13 +15,18 @@ from pathlib import Path
 import os
 
 import firebase_admin
-from firebase_admin import credentials, initialize_app
+from firebase_admin import credentials, initialize_app, storage
 from django.contrib.messages import constants as message_constants
 
 # Faylni to‘g‘ri joylashgan yo‘lga ulang
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 cred = credentials.Certificate(os.path.join(BASE_DIR, 'avtoproctoring-firebase-adminsdk-ooxip-3cb6c76457.json'))
-initialize_app(cred)
+initialize_app(cred, {
+    'storageBucket': 'avtoproctoring.firebasestorage.app'  # Storage Bucket nomini kiritish
+})
+
+# Storage ni ishlatish
+bucket = storage.bucket()
 
 
 

@@ -1,20 +1,31 @@
 import base64
+import io
+import json
 import os.path
 import random
+import time
 
 import cv2
 import dlib
 import face_recognition
 import numpy as np
+import requests
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.messages.storage import default_storage
+from django.core.files.base import ContentFile
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from firebase_admin import firestore, storage
+from io import BytesIO
+from PIL import Image
+import face_recognition
 
 # Firestore obyekti
 db = firestore.client()
+bucket = storage.bucket()
 # Dlib yuz landmarklarini yuklash uchun model
 detector = dlib.get_frontal_face_detector()
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -34,19 +45,44 @@ def generate_username(firstname, lastname):
     username = f"{firstname.lower()}.{lastname.lower()}{random_number}"
     return username
 
-def save_captured_photo_to_firestore(captured_photo, email):
-    # Base64 ma'lumotni faylga aylantirish
-    format, imgstr = captured_photo.split(';base64,')
-    ext = format.split('/')[-1]
-    photo_data = base64.b64decode(imgstr)
 
-    # Firebase Storage papkasida fayl nomi
-    bucket = storage.bucket()
-    blob = bucket.blob(f"user_photos/{email}.{ext}")
-    blob.upload_from_string(photo_data, content_type=f"image/{ext}")
+def upload_image_to_storage(image_base64):
+    # Rasmni Base64 formatidan faylga aylantirish
+    image_data = base64.b64decode(image_base64.split(',')[1])
+    image = Image.open(BytesIO(image_data))
 
-    # Fayl URL'sini qaytarish
+    # Foydalanuvchi nomi asosida rasmni saqlash
+    image_name = f"user_{generate_student_id()}.png"
+    blob = bucket.blob(image_name)
+
+    # Faylni yuklash
+    blob.upload_from_string(image_data, content_type='image/png')
+
+    # Rasm URL'sini olish
     return blob.public_url
+
+
+def compare_faces(saved_photo_url, captured_photo_base64):
+    # Saqlangan rasmni URL'dan olish
+    saved_photo_data = requests.get(saved_photo_url).content
+    saved_image = Image.open(BytesIO(saved_photo_data))
+    saved_encodings = face_recognition.face_encodings(saved_image)
+
+    if not saved_encodings:
+        return False
+
+    # Yangi olingan rasmni Base64 formatidan dekodlash
+    captured_photo_data = base64.b64decode(captured_photo_base64.split(',')[1])
+    captured_image = Image.open(BytesIO(captured_photo_data))
+    captured_encodings = face_recognition.face_encodings(captured_image)
+
+    if not captured_encodings:
+        return False
+
+    # Yuzni solishtirish
+    match = face_recognition.compare_faces([saved_encodings[0]], captured_encodings[0])
+    return match[0]
+
 
 @csrf_exempt
 def signup_view(request):
@@ -54,55 +90,73 @@ def signup_view(request):
         role = request.POST.get('role')  # "student" yoki "teacher"
         firstname = request.POST.get('firstname')
         lastname = request.POST.get('lastname')
+        middlename = request.POST.get('middlename')
         email = request.POST.get('email')
         password = request.POST.get('pass')
         re_password = request.POST.get('re_pass')
         photo_base64 = request.POST.get('captured_photo')
+        subject = request.POST.get('subject', None)  # Only for teacher role
 
+        # Parollarni tekshirish
         if password != re_password:
             messages.error(request, "Parollar bir xil bo'lishi kerak.")
             return render(request, 'signup.html')
 
         try:
-            if role == 'student':
-                # Talabalar kolleksiyasiga yozish
-                student_id = generate_student_id()  # Tasodifiy ID
-                students_ref = db.collection('students')
-                existing_students = students_ref.where('email', '==', email).stream()
 
-                if any(existing_students):  # Email mavjudligini tekshirish
-                    messages.error(request, "Bunday email allaqachon mavjud.")
+
+            # Talaba yoki o'qituvchi roli bo'yicha tekshirish
+            if role == 'student':
+                # Talaba kolleksiyasiga yozish
+                students_ref = db.collection('students')
+                student_id = f"ST{str(int(time.time()))}"  # Yangi student_id yaratish
+                # Bunday foydalanuvchi mavjudligini tekshirish
+                existing_user = students_ref.where('firstname', '==', firstname).where('lastname', '==',
+                                                                                                 lastname).where(
+                    'middlename', '==', middlename).where('email', '==', email).stream()
+
+                if any(existing_user):  # Foydalanuvchi allaqachon mavjud
+                    messages.error(request, "Bunday foydalanuvchi ma'lumotlar bazasida mavjud.")
                     return render(request, 'signup.html')
 
                 students_ref.document(student_id).set({
                     'student_id': student_id,
                     'firstname': firstname,
                     'lastname': lastname,
+                    'middlename': middlename,
                     'email': email,
                     'password': password,
                     'photo': photo_base64
                 })
+
                 messages.success(request, "Talaba sifatida muvaffaqiyatli ro'yxatdan o'tdingiz!")
                 return redirect('signin')
 
             elif role == 'teacher':
                 # O'qituvchilar kolleksiyasiga yozish
-                username = f"{firstname.lower()}_{lastname.lower()}"  # Username yaratish
                 teachers_ref = db.collection('teachers')
-                existing_teachers = teachers_ref.where('email', '==', email).stream()
+                username = f"{firstname.lower()}_{lastname.lower()}"
 
-                if any(existing_teachers):  # Email mavjudligini tekshirish
-                    messages.error(request, "Bunday email allaqachon mavjud.")
+                # Bunday foydalanuvchi mavjudligini tekshirish
+                existing_user = teachers_ref.where('firstname', '==', firstname).where('lastname', '==',
+                                                                                       lastname).where(
+                    'middlename', '==', middlename).where('email', '==', email).stream()
+
+                if any(existing_user):  # Foydalanuvchi allaqachon mavjud
+                    messages.error(request, "Bunday foydalanuvchi ma'lumotlar bazasida mavjud.")
                     return render(request, 'signup.html')
 
                 teachers_ref.document(username).set({
                     'username': username,
                     'firstname': firstname,
                     'lastname': lastname,
+                    'middlename': middlename,
                     'email': email,
                     'password': password,
+                    'subject': subject,
                     'photo': photo_base64
                 })
+
                 messages.success(request, "O'qituvchi sifatida muvaffaqiyatli ro'yxatdan o'tdingiz!")
                 return redirect('signin')
 
@@ -112,27 +166,98 @@ def signup_view(request):
     return render(request, 'signup.html')
 
 
+def check_face(request):
+    if request.method == "POST":
+        # Rasmni olish
+        data = json.loads(request.body)
+        captured_photo_base64 = data.get("captured_image")
+        student_id_face = data.get("student_id_face")
+
+        # Base64 rasmni dekodlash
+        image_data = base64.b64decode(captured_photo_base64.split(',')[1])
+        image = Image.open(BytesIO(image_data))
+
+        # Rasmni vaqtinchalik faylga saqlash
+        image_path = save_image_to_temp_file(image)
+
+        try:
+            # Firestore'dan foydalanuvchini olish
+            user_ref = db.collection('students').document(student_id_face)
+            user = user_ref.get()
+
+            if user.exists:
+                user_data = user.to_dict()
+                saved_photo_base64 = user_data.get('photo')
+
+                # Saqlangan rasmni va olingan rasmni tanib olish
+                if saved_photo_base64:
+                    saved_photo_bytes = base64.b64decode(saved_photo_base64.split(',')[1])
+                    saved_image = face_recognition.load_image_file(BytesIO(saved_photo_bytes))
+                    captured_image = face_recognition.load_image_file(image_path)
+
+                    saved_encodings = face_recognition.face_encodings(saved_image)
+                    captured_encodings = face_recognition.face_encodings(captured_image)
+
+                    if saved_encodings and captured_encodings:
+                        match = face_recognition.compare_faces([saved_encodings[0]], captured_encodings[0])
+                        return JsonResponse({'match': match[0]})
+                    else:
+                        return JsonResponse({'error': 'Yuzni tanib olishda xatolik yuz berdi.'})
+                else:
+                    return JsonResponse({'error': 'Foydalanuvchi rasmi mavjud emas.'})
+            else:
+                return JsonResponse({'error': 'Foydalanuvchi topilmadi.'})
+        except Exception as e:
+            return JsonResponse({'error': f'Xatolik yuz berdi: {str(e)}'})
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+def save_image_to_temp_file(image):
+    """Rasmni vaqtinchalik faylga saqlash va fayl manzilini qaytarish."""
+    file_name = 'temp_image.jpg'
+    file_path = default_storage.save(file_name, ContentFile(image.tobytes()))
+    return default_storage.path(file_path)
+
+
+def check_face_match(saved_image_path, captured_image_path):
+    saved_image = face_recognition.load_image_file(saved_image_path)
+    captured_image = face_recognition.load_image_file(captured_image_path)
+
+    saved_encoding = face_recognition.face_encodings(saved_image)
+    captured_encoding = face_recognition.face_encodings(captured_image)
+
+    if saved_encoding and captured_encoding:
+        results = face_recognition.compare_faces(saved_encoding, captured_encoding)
+        return results[0]  # Agar yuzlar mos kelsa True qaytadi
+    return False
+
+
 @csrf_exempt
-# Kirish funksiyasi
 def signin_view(request):
     if request.method == 'POST':
-        # Parol orqali kirish
+        # Talaba va o'qituvchi uchun rolni tanlash
+        role = request.POST.get('role')
+
+        # Parol orqali kirish (Student ID va Parol)
         if 'signin_password' in request.POST:
             student_id = request.POST.get('student_id')
             password = request.POST.get('password')
 
             try:
-                # Talaba yoki o'qituvchini Firestore'dan tekshirish
-                user_ref = db.collection('students').document(student_id)
-                user = user_ref.get()
+                if role == 'student':
+                    # Talaba uchun ma'lumotlarni olish
+                    users_ref = db.collection('students').document(student_id)
+                elif role == 'teacher':
+                    # O'qituvchi uchun ma'lumotlarni olish
+                    users_ref = db.collection('teachers').document(student_id)
 
-                if user.exists:
-                    user_data = user.to_dict()
-                    if user_data.get('password') == password:  # Parolni tekshirish
-                        # Foydalanuvchi ma'lumotlarini saqlash (session yoki cookie orqali)
-                        request.session['student_id'] = student_id
+                doc = users_ref.get()
+                if doc.exists:
+                    user_data = doc.to_dict()
+                    if user_data.get('password') == password:
                         messages.success(request, f"Xush kelibsiz, {user_data.get('firstname')} {user_data.get('lastname')}!")
-                        return redirect('home')  # Home sahifaga yo'naltirish
+                        return redirect('home')  # Home pagega redirect qilish
                     else:
                         messages.error(request, "Noto'g'ri parol.")
                 else:
@@ -140,22 +265,27 @@ def signin_view(request):
             except Exception as e:
                 messages.error(request, f"Xatolik yuz berdi: {str(e)}")
 
-        # Yuzni tanib olish orqali kirish
+        # Yuzni tanib olish orqali kirish (Student ID va Yuzni tanish)
         elif 'signin_face' in request.POST:
-            student_id = request.POST.get('student_id_face')
+            student_id_face = request.POST.get('student_id_face')
             captured_photo_base64 = request.POST.get('captured_photo')
 
             try:
-                # Firestore'dan foydalanuvchini olish
-                user_ref = db.collection('students').document(student_id)
-                user = user_ref.get()
+                if role == 'student':
+                    # Talaba uchun ma'lumotlarni olish
+                    users_ref = db.collection('students').document(student_id_face)
+                elif role == 'teacher':
+                    # O'qituvchi uchun ma'lumotlarni olish
+                    users_ref = db.collection('teachers').document(student_id_face)
 
-                if user.exists:
-                    user_data = user.to_dict()
+                doc = users_ref.get()
+                if doc.exists:
+                    user_data = doc.to_dict()
                     saved_photo_base64 = user_data.get('photo')
 
-                    # Saqlangan rasmni va olingan rasmni tanib olish
+                    # Yuzni solishtirish
                     if saved_photo_base64:
+                        # Saqlangan rasmni dekodlash
                         saved_photo_bytes = base64.b64decode(saved_photo_base64.split(',')[1])
                         saved_image = cv2.imdecode(np.frombuffer(saved_photo_bytes, np.uint8), cv2.IMREAD_COLOR)
                         captured_photo_bytes = base64.b64decode(captured_photo_base64.split(',')[1])
@@ -167,9 +297,8 @@ def signin_view(request):
                         if saved_encodings and captured_encodings:
                             match = face_recognition.compare_faces([saved_encodings[0]], captured_encodings[0])
                             if match[0]:  # Yuzlar mos kelsa
-                                request.session['student_id'] = student_id
                                 messages.success(request, f"Xush kelibsiz, {user_data.get('firstname')} {user_data.get('lastname')}!")
-                                return redirect('home')  # Home sahifaga yo'naltirish
+                                return redirect('home')
                             else:
                                 messages.error(request, "Yuzlar mos kelmadi.")
                         else:
@@ -180,6 +309,46 @@ def signin_view(request):
                 messages.error(request, f"Xatolik yuz berdi: {str(e)}")
 
     return render(request, 'signin.html')
+
+
+def home_view(request):
+    # Sessiondan foydalanuvchi ID'sini olish
+    student_id = request.session.get('student_id')
+
+    # Agar foydalanuvchi ID mavjud bo'lmasa, tizimga kirish sahifasiga yo'naltirish
+    if not student_id:
+        return redirect('signin')
+
+    try:
+        # Firestore'dan foydalanuvchini student_id bo‘yicha qidirish
+        users_ref = db.collection('students').where('student_id', '==', student_id).stream()
+        user_info = None
+
+        # Hujjatlar ichidan birinchi mos keladigan foydalanuvchini olish
+        for user in users_ref:
+            user_info = user.to_dict()
+            break
+
+        if user_info:
+            # Foydalanuvchi mavjud bo'lsa, rasm va ismini olish
+            profile_image = user_info.get('photo', '/path/to/default/image.jpg')
+            firstname = user_info.get('firstname', 'Firstname')
+            lastname = user_info.get('lastname', 'Lastname')
+            fullname = f"{lastname} {firstname}"
+        else:
+            profile_image = '/path/to/default/image.jpg'
+            fullname = "Unknown User"
+
+        context = {
+            'profile_image': profile_image,
+            'fullname': fullname
+        }
+        return render(request, 'talaba/home.html', context)
+
+    except Exception as e:
+        # Xatolik yuz bersa xatolik xabarini ko'rsatish
+        return render(request, 'talaba/home.html', {"error": f"Xatolik yuz berdi: {str(e)}"})
+
 
 def decode_base64_image(base64_string):
     """
@@ -193,6 +362,7 @@ def decode_base64_image(base64_string):
     except Exception as e:
         print(f"Rasmni dekodlashda xatolik: {str(e)}")
         return None
+
 
 # Talaba ma'lumotlarini olish
 def get_student_data(student_id):
@@ -313,40 +483,6 @@ def get_student(request, student_id):
     return render(request, 'talaba/student_detail.html', {'student': student_data})
 
 
-def home_view(request):
-    # Sessiondan foydalanuvchi ID'sini olish
-    student_id = request.session.get('student_id')
-
-    # Agar foydalanuvchi ID mavjud bo'lmasa, tizimga kirish sahifasiga yo'naltirish
-    if not student_id:
-        return redirect('signin')
-
-    try:
-        # Firestore'dan foydalanuvchini student_id bo‘yicha qidirish
-        users_ref = db.collection('students').document(student_id)
-        user_info = users_ref.get()
-
-        if user_info.exists:
-            user_data = user_info.to_dict()
-
-            # Foydalanuvchining rasm va ismi
-            profile_image = user_data.get('photo', '/path/to/default/image.jpg')  # Agar rasm mavjud bo'lmasa, default rasm
-            fullname = f"{user_data.get('firstname', 'Firstname')} {user_data.get('lastname', 'Lastname')}"
-        else:
-            profile_image = '/path/to/default/image.jpg'
-            fullname = "Unknown User"
-
-        context = {
-            'profile_image': profile_image,
-            'fullname': fullname
-        }
-        return render(request, 'talaba/home.html', context)
-
-    except Exception as e:
-        # Xatolik yuz bersa xatolik xabarini ko'rsatish
-        return render(request, 'talaba/home.html', {"error": f"Xatolik yuz berdi: {str(e)}"})
-
-
 def exam_view(request):
     return render(request, 'talaba/exam.html', {'exam': exam_view})
 
@@ -378,7 +514,88 @@ def admin_login(request):
 @login_required
 @user_passes_test(is_superuser)
 def admin_dashboard(request):
-    return render(request, 'admin/admin_dashboard.html')
+    try:
+        # Talabalar va o'qituvchilar kolleksiyalarini olish
+        students_ref = db.collection('students')
+        teachers_ref = db.collection('teachers')
+
+        # Talabalar va o'qituvchilarni olish
+        students = students_ref.stream()
+        teachers = teachers_ref.stream()
+
+        # Talabalar va o'qituvchilarni ro'yxatga olish
+        student_data = [student.to_dict() for student in students]
+        teacher_data = [teacher.to_dict() for teacher in teachers]
+
+        context = {
+            'student_data': student_data,
+            'teacher_data': teacher_data
+        }
+
+        return render(request, 'admin/admin_dashboard.html', context)
+
+    except Exception as e:
+        messages.error(request, f"Xatolik yuz berdi: {str(e)}")
+        return render(request, 'admin/admin_dashboard.html')
+
+
+def add_student(request):
+    if request.method == 'POST':
+        firstname = request.POST.get('firstname')
+        lastname = request.POST.get('lastname')
+        student_id = request.POST.get('student_id')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        photo = request.POST.get('photo')
+
+        try:
+            student_ref = db.collection('students').document(student_id)
+            student_ref.set({
+                'firstname': firstname,
+                'lastname': lastname,
+                'student_id': student_id,
+                'email': email,
+                'password': password,
+                'photo': photo
+            })
+            messages.success(request, "Talaba muvaffaqiyatli qo'shildi.")
+            return redirect('admin_dashboard')
+        except Exception as e:
+            messages.error(request, f"Xatolik yuz berdi: {str(e)}")
+
+    return render(request, 'admin/add_student.html')
+
+
+def edit_student(request, student_id):
+    student_ref = db.collection('students').document(student_id)
+    student = student_ref.get()
+
+    if student.exists:
+        student_data = student.to_dict()
+        if request.method == 'POST':
+            student_ref.update({
+                'firstname': request.POST.get('firstname'),
+                'lastname': request.POST.get('lastname'),
+                'email': request.POST.get('email'),
+                'password': request.POST.get('password')
+            })
+            messages.success(request, "Talaba ma'lumotlari yangilandi.")
+            return redirect('admin_dashboard')
+
+        return render(request, 'edit_student.html', {'student': student_data})
+
+    messages.error(request, "Talaba topilmadi.")
+    return redirect('admin_dashboard')
+
+
+def delete_student(request, student_id):
+    try:
+        student_ref = db.collection('students').document(student_id)
+        student_ref.delete()
+        messages.success(request, "Talaba muvaffaqiyatli o'chirildi.")
+    except Exception as e:
+        messages.error(request, f"Xatolik yuz berdi: {str(e)}")
+    return redirect('admin_dashboard')
 
 
 @login_required
@@ -388,7 +605,7 @@ def redirect_based_on_role(request):
         user_username = request.user.username
 
         # Firestore'dan foydalanuvchini qidirish
-        users_ref = db.collection('users')
+        users_ref = db.collection('students')
         query = users_ref.where('email', '==', user_username).limit(1).stream()
 
         user_data = None

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -6,12 +7,12 @@
     <title>Imtihon Sahifasi</title>
 
     <!-- Favicon -->
-    <link rel="icon" href="../../static/images/LOGOTIP.png" type="image/x-icon">
+    <link rel="icon" href="{% static 'images/LOGOTIP.png' %}" type="image/x-icon">
 
     <!-- Bootstrap CSS -->
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-    <!-- Fontawesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
     <!-- Custom CSS -->
@@ -19,6 +20,7 @@
         /* Page Style */
         body {
             transition: background-color 0.3s, color 0.3s;
+            font-family: Arial, sans-serif;
         }
 
         /* Sidebar */
@@ -41,7 +43,6 @@
             align-items: flex-start;
         }
 
-        /* Profile Section */
         .profile-section {
             display: flex;
             flex-direction: column;
@@ -134,7 +135,6 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
-        /* Profile in Header */
         .header .profile-header {
             display: none;
             align-items: center;
@@ -235,10 +235,33 @@
             background-color: #0056b3;
             right: -210px;
         }
+
+        video {
+            border: 1px solid #ccc;
+            width: 100%;
+            height: auto;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .alert {
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .card-header {
+            font-weight: bold;
+        }
+
     </style>
 </head>
 <body>
 
+<!-- Header -->
 <div class="header">
     <!-- Collapse Button -->
     <i class="bi bi-list" onclick="toggleSidebar()"></i>
@@ -253,23 +276,21 @@
     <div class="icon-buttons">
         <i class="bi bi-sun" onclick="toggleMode()" id="mode-icon"></i>
     </div>
-    <!-- Profile (Sidebar collapsed) -->
-    <div class="profile-header">
-        <img src="{{ profile_image }}" alt="Profile Image">
-        <div class="username">{{ fullname }}</div>
-    </div>
+
 </div>
 
+<!-- Sidebar -->
 <div class="sidebar" id="sidebar">
+    <!-- Profil Qismi -->
     <div class="profile-section">
-        <img src="{{ profile_image }}" alt="Profile Image">
+        <img src="{{ profile_image }}" alt="Profile Image" class="img-fluid rounded-circle"/>
         <div class="username">{{ fullname }}</div>
     </div>
 
     <!-- Sidebar Menu -->
     <ul class="nav flex-column">
         <li class="nav-item">
-            <a href="#" class="nav-link" data-toggle="tooltip" title="Dashboard">
+            <a href="http://localhost:8080/home" class="nav-link" data-toggle="tooltip" title="Dashboard">
                 <i class="fa-solid fa-gauge-high icon"></i>
                 <span class="text">Dashboard</span>
             </a>
@@ -299,150 +320,134 @@
             </a>
         </li>
         <li class="nav-item">
-            <a href="#" class="nav-link" data-toggle="tooltip" title="Imtihonlar">
+            <a href="http://localhost:8080/student_exams/" class="nav-link" data-toggle="tooltip" title="Imtihonlar">
                 <i class="fa-solid fa-note-sticky icon"></i>
                 <span class="text">Imtihonlar</span>
             </a>
         </li>
         <li class="nav-item">
-            <a class="btn " href="http://localhost:8080/signin/">
-                <h5>Log out</h5>
+            <a href="http://localhost:8080/signin/" class="nav-link" data-toggle="tooltip" title="Chiqish">
+                <i class="fa-solid fa-sign-out icon"></i>
+                <span class="text">Chiqish</span>
             </a>
         </li>
     </ul>
 </div>
 
+<!-- Main Content -->
 <div class="main-content" id="main-content">
-    <div class="row">
-        <!-- Exam Container (Avvalgi misol bilan bir xil) -->
-        <div class="col-lg-8 col-md-12 exam-container">
-            <div class="timer">Qolgan vaqt: <span id="timer">60:00</span></div>
-            <h2 class="text-center mb-4">Imtihon</h2>
+    <div class="container mt-5">
+        <div class="row">
+            <!-- Imtihon konteyneri -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white text-center">Imtihon</div>
+                    <div class="card-body">
+                        <form id="exam-form" method="POST" action="{% url 'exam_results' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="exam_id" value="{{ exam_id }}">
+                            <input type="hidden" id="violations" name="violations" value="0">
+                            <input type="hidden" name="firstname" value="{{ fullname.split}}">
+                            <input type="hidden" name="lastname" value="{{ fullname.split}}">
+                            <input type="hidden" name="profile_image" value="{{ profile_image }}">
 
-            <!-- Har bir savol uchun javob variantlari -->
-            <form method="POST" action="{% url 'exam_submission' %}">
-                {% csrf_token %}
-                <div class="question">
-                    <h5>1. Fransiyaning poytaxti qaysi?</h5>
-                    <ul class="options">
-                        <li>
-                            <label>
-                                <input type="radio" name="question1" value="Parij"> Parij
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question1" value="London"> London
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question1" value="Berlin"> Berlin
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question1" value="Rim"> Rim
-                            </label>
-                        </li>
-                    </ul>
+                            {% for question in questions %}
+                                <div class="form-group">
+                                    <label>{{ forloop.counter }}. {{ question.question_text }}</label>
+                                    {% for option in question.options %}
+                                        <div class="form-check">
+                                            <input type="radio" name="question_{{ question.id }}" value="{{ option }}"
+                                                   class="form-check-input">
+                                            <label class="form-check-label">{{ option }}</label>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+
+                            <button type="submit" class="btn btn-success mt-3">Yakunlash</button>
+                        </form>
+                    </div>
                 </div>
-
-                <div class="question">
-                    <h5>2. Qizil sayyora qaysi?</h5>
-                    <ul class="options">
-                        <li>
-                            <label>
-                                <input type="radio" name="question2" value="Mars"> Mars
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question2" value="Yupiter"> Yupiter
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question2" value="Saturn"> Saturn
-                            </label>
-                        </li>
-                        <li>
-                            <label>
-                                <input type="radio" name="question2" value="Venera"> Venera
-                            </label>
-                        </li>
-                    </ul>
-                </div>
-
-                <button type="submit" class="submit-btn mt-4">Yuborish</button>
-            </form>
-
-
-        </div>
-
-        <!-- Video Monitoring and Notification Container -->
-        <div class="col-lg-4 col-md-12">
-            <div class="video-monitoring mb-4">
-                <h5 class="text-center">Video Monitoring</h5>
-                <video id="videoElement" autoplay muted></video>
             </div>
 
-            <div class="notification-container">
-                <h5 class="text-center">Bildirishnomalar</h5>
-                <ul>
-                    <li>Kamerani o‘chirib qo‘yish mumkin emas.</li>
-                    <li>Imtihon davomida boshqa ilovalardan foydalanmang.</li>
-                    <li>Har qanday shubhali harakat nazorat qilinadi.</li>
-                </ul>
+            <!-- Video Monitoring -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-center">Video Monitoring</div>
+                    <div class="card-body">
+                        <div style="position: relative; display: inline-block;">
+                            <video id="video-monitoring" autoplay muted playsinline></video>
+                            <canvas id="overlay"></canvas>
+                        </div>
+                        <p id="violation-counter" class="text-danger mt-2"></p>
+                    </div>
+                    <hr/>
+                    <div class="card">
+                    <div class="card-header bg-danger text-white text-center">Ogohlantirishlar</div>
+                    <div class="card-body" id="notifications">
+                        {% for notification in notifications %}
+                            <p>{{ notification }}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                </div>
             </div>
+
+
         </div>
     </div>
+
 </div>
 
+<!-- Mediapipe va Tensorflow Kutubxonalari -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script>
-    document.getElementById('exam-form').addEventListener('submit', function(event) {
-        event.preventDefault(); // Formani default tarzda yuborishni to'xtatish
+    let cameraStream = null;
+    let violationCount = 0;
 
-        // Video monitoringni to'xtatish
-        const video = document.querySelector("#videoElement");
-        if (video && video.srcObject) {
-            const stream = video.srcObject;
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
-            video.srcObject = null;
+    const videoElement = document.getElementById("video-monitoring");
+    const notifications = document.getElementById("notifications");
+
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({video: true});
+            videoElement.srcObject = stream;
+            cameraStream = stream;
+            console.log("Kamera muvaffaqiyatli ishga tushdi.");
+        } catch (error) {
+            console.error("Kameraga ulanishda xatolik:", error);
+            notifications.innerHTML +=
+                "<p class='text-danger'>Kameraga ulanishda xatolik yuz berdi! Iltimos, ruxsatni tekshiring.</p>";
         }
+    }
 
-        // Formani AJAX orqali yuborish
-        const formData = new FormData(this);
-        fetch(this.action, {
-            method: "POST",
-            body: formData,
-            headers: {
-                "X-CSRFToken": formData.get("csrfmiddlewaretoken")
+    function addNotification(message, type = "danger") {
+        const newNotification = document.createElement("p");
+        newNotification.classList.add(`text-${type}`);
+        newNotification.textContent = message;
+        notifications.appendChild(newNotification);
+    }
+
+    setInterval(() => {
+        const randomViolation = Math.random() > 0.5;
+        if (randomViolation) {
+            violationCount++;
+            addNotification(`Xato ${violationCount}: Monitoringda qoidabuzarlik aniqlandi!`);
+            document.getElementById("violation-counter").textContent = `Xatolar soni: ${violationCount}`;
+            document.getElementById("violations").value = violationCount;
+
+            if (violationCount >= 10) {
+                addNotification("Juda ko'p qoidabuzarlik! Imtihon bekor qilindi!", "danger");
+                alert("Imtihon muvaffaqiyatsiz yakunlandi. Juda ko'p qoidabuzarlik!");
+                document.getElementById("exam-form").submit();
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === "success") {
-                alert(data.message);
-            } else {
-                alert(data.message);
-            }
-        })
-        .catch(error => {
-            alert("Ma'lumotni yuborishda xatolik yuz berdi: " + error);
-        });
-    });
+        }
+    }, 3000);
+
+    startCamera();
 </script>
 
-<!-- JQuery -->
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<!-- Popper.js (Tooltip uchun zarur) -->
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-<!-- Bootstrap JS -->
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-<!-- Custom JS -->
 <script>
     // Sidebar Toggle
     function toggleSidebar() {
@@ -463,11 +468,6 @@
         }
     }
 
-    // Tooltip Initialization
-    $(document).ready(function () {
-        $('[data-toggle="tooltip"]').tooltip();
-    });
-
     // Real-time Date and Time
     function updateDateTime() {
         const now = new Date();
@@ -478,41 +478,6 @@
 
     setInterval(updateDateTime, 1000);
     updateDateTime();
-
-    // OpenWeatherMap API kaliti
-    const apiKey = 'db46ced9c88f6a70c3149fd20a31ab4a';
-
-    // Foydalanuvchi joylashuvini olish va ob-havo ma'lumotlarini so'rash
-    function getWeather() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(position => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                const apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
-
-                fetch(apiUrl)
-                    .then(response => response.json())
-                    .then(data => {
-                        // O'zgaruvchilarni to'g'ri e'lon qilish
-                        const temp = data.main.temp;
-                        const weather = data.weather[0].description; // `weather` o'zgaruvchisi
-                        document.getElementById('weather-info').innerText = `Havo: ${temp}°C, ${weather}`;
-                    })
-                    .catch(error => {
-                        console.error('Ob-havo ma\'lumotlarini olishda xatolik:', error);
-                        document.getElementById('weather-info').innerText = 'Ob-havo ma\'lumotlarini olishda xatolik';
-                    });
-            }, () => {
-                document.getElementById('weather-info').innerText = 'Joylashuvni olish mumkin emas';
-            });
-        } else {
-            document.getElementById('weather-info').innerText = 'Brauzer geolokatsiyani qo‘llab-quvvatlamaydi';
-        }
-    }
-
-    // Sahifa yuklanganda ob-havo ma'lumotlarini olish
-    window.onload = getWeather;
-
 
     // Video Monitoring Initialization
     const video = document.querySelector("#videoElement");
@@ -545,13 +510,10 @@
         }, 1000);
     }
 
-
     var examDuration = 60 * 60; // 60 minutes
     var display = document.querySelector('#timer');
     startTimer(examDuration, display);
 </script>
-
-
 
 </body>
 </html>

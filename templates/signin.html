@@ -18,10 +18,23 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+        #capturedImage {
+            border: 2px solid blue;
+            margin-top: 20px;
+        }
+
+        .info {
+            margin-top: 10px;
+            font-size: 16px;
+            color: blue;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
 
-<!-- Sign In Form -->
 <section class="sign-in">
     <div class="container">
         <div class="signin-content">
@@ -33,10 +46,10 @@
             <div class="signin-form">
                 <h2 class="form-title">Kirish</h2>
 
-                <!-- Kirish usulini tanlash uchun dropdown -->
                 <div class="form-group dropdown mb-4">
                     <label for="loginMethod"></label>
                     <select class="form-control" id="loginMethod" onchange="toggleLoginMethod()" required>
+                        <option value="">Kirish usulini tanlang</option>
                         <option value="password">Student ID va Parol</option>
                         <option value="face">Student ID va Yuzni tanish orqali</option>
                     </select>
@@ -46,11 +59,9 @@
                 <form method="POST" id="passwordLogin" style="display:block;">
                     {% csrf_token %}
                     <div class="form-group">
-                        <label for="student_id"></label>
-                        <input type="text" name="student_id" id="student_id" class="form-control" placeholder="Student ID" required>
+                        <input type="text" name="student_id" id="student_id_password" class="form-control" placeholder="Student ID" required>
                     </div>
                     <div class="form-group">
-                        <label for="password"></label>
                         <input type="password" name="password" id="password" class="form-control" placeholder="Password" required>
                     </div>
                     <div class="form-group form-button">
@@ -62,85 +73,39 @@
                 <form method="POST" id="faceLogin" style="display:none;">
                     {% csrf_token %}
                     <div class="form-group">
-                        <label for="student_id_face"></label>
-                        <input type="text" name="student_id_face" id="student_id_face" class="form-control" placeholder="Student ID" required>
+                        <input type="text" name="student_id" id="student_id_face" class="form-control" placeholder="Student ID" required/>
                     </div>
+
                     <div class="form-group">
-                        <button type="button" class="btn btn-secondary" onclick="startCamera()">Kamerani yoqing</button>
-                        <video id="camera" width="320" height="240" autoplay></video>
-                        <button type="button" class="btn btn-primary" onclick="capturePhoto()">Rasmni olish</button>
-                        <img id="capturedImage" width="320" height="240" style="display:none;" alt="">
+                        <button type="button" onclick="startCamera()" class="btn btn-success">Kamerani yoqing</button>
+                        <video id="camera" width="320" height="240" autoplay muted></video>
+                        <button type="button" onclick="capturePhoto()" class="btn btn-primary mt-2">Rasmni olish</button>
+                        <img id="capturedImage" width="320" height="240" style="display:none;" />
                         <input type="hidden" name="captured_photo" id="captured_photo">
+                        <p class="info" id="faceInfo" style="display:none;">Yuz muvaffaqiyatli aniqlangan!</p>
                     </div>
+
                     <div class="form-group form-button">
-                        <input type="submit" name="signin" id="signin" class="form-submit" value="Log in"/>
+                        <input type="submit" name="signin_face" id="signin_face" class="form-submit btn btn-primary" value="Log in"/>
                     </div>
+                    {% if messages %}
+                        <div class="alert alert-danger">
+                            {% for message in messages %}
+                                <p>{{ message }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </form>
             </div>
         </div>
     </div>
 </section>
 
-<!-- JS -->
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script src="../static/js/face-detection.js"></script>
 
-<script>
-    // Kirish usulini ko'rsatish funksiyalari
-    function toggleLoginMethod() {
-        const method = document.getElementById('loginMethod').value;
-        if (method === 'password') {
-            document.getElementById('passwordLogin').style.display = 'block';
-            document.getElementById('faceLogin').style.display = 'none';
-        } else {
-            document.getElementById('passwordLogin').style.display = 'none';
-            document.getElementById('faceLogin').style.display = 'block';
-        }
-    }
-
-    // Kamerani yoqish funksiyasi
-    let video = document.getElementById('camera');
-    let capturedImage = document.getElementById('capturedImage');
-    let capturedPhotoInput = document.getElementById('captured_photo');
-    let stream;
-
-    function startCamera() {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({video: true}).then(function (s) {
-                stream = s;
-                video.srcObject = stream;
-            }).catch(function (error) {
-                alert("Kamerani yoqishda xatolik yuz berdi: " + error.message);
-            });
-        } else {
-            alert("Brauzer kamerani qo'llab-quvvatlamaydi.");
-        }
-    }
-
-    // Rasmni olish funksiyasi
-    function capturePhoto() {
-        let canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        let context = canvas.getContext('2d');
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // Rasmni Base64 formatida olish
-        let dataURL = canvas.toDataURL('image/png');
-        capturedPhotoInput.value = dataURL;
-
-        // Rasmni ko'rsatish
-        capturedImage.src = dataURL;
-        capturedImage.style.display = 'block';
-        video.style.display = 'none';  // Kamerani yashirish
-
-        // Kamerani o'chirish
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-    }
-</script>
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+<script src="{% static 'vendor/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
 
 </body>
 </html>

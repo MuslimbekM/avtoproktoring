@@ -74,11 +74,14 @@
 
 <div class="sidebar">
     <h2 class="text-center">Admin Panel</h2>
-    <a href="#"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-    <a href="#"><i class="fas fa-users"></i> Users</a>
-    <a href="#"><i class="fas fa-database"></i> Data Management</a>
-    <a href="#"><i class="fas fa-cogs"></i> Settings</a>
-    <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    <a href="{% url 'admin_dashboard' %}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a href="#"><i class="fas fa-users"></i> Foydalanuvchilar</a>
+    <a href="#"><i class="fas fa-database"></i> Ma'lumotlar boshqaruvi</a>
+    <a href="{% url 'create_questions' %}"><i class="fas fa-question-circle"></i> Savollarni yaratish</a>
+    <a href="{% url 'create_subject' %}"><i class="fas fa-book"></i> Fan yaratish</a>
+    <a href="{% url 'create_exam' %}"><i class="fas fa-pencil-ruler"></i> Imtihon yaratish</a><a href="#"><i
+        class="fas fa-cogs"></i> Sozlamalar</a>
+    <a href="#"><i class="fas fa-sign-out-alt"></i> Chiqish</a>
 </div>
 
 <div class="main-content">
@@ -88,70 +91,159 @@
 
     <div class="container-fluid mt-4">
         <div class="row">
-            <!-- Students Table -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>Talabalar</h4>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Rasm</th>
-                                    <th>Ismi</th>
-                                    <th>Familyasi</th>
-                                    <th>Email</th>
-                                    <th>Student ID</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for student in student_data %}
-                                <tr>
-                                    <td><img src="{{ student.photo }}" alt="Profile Image" class="profile-image"></td>
-                                    <td>{{ student.firstname }}</td>
-                                    <td>{{ student.lastname }}</td>
-                                    <td>{{ student.email }}</td>
-                                    <td>{{ student.student_id }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+            <div class="col-12">
+                <!-- Students Table -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Talabalar</h4>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-bordered">
+                                    <thead>
+                                    <tr>
+                                        <th>Rasm</th>
+                                        <th>Ismi</th>
+                                        <th>Familyasi</th>
+                                        <th>Email</th>
+                                        <th>Student ID</th>
+                                        <th>Harakatlar</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for student in student_data %}
+                                        <tr>
+                                            <td><img src="{{ student.photo }}" alt="Profile Image"
+                                                     class="profile-image"></td>
+                                            <td>{{ student.firstname }}</td>
+                                            <td>{{ student.lastname }}</td>
+                                            <td>{{ student.email }}</td>
+                                            <td>{{ student.student_id }}</td>
+                                            <td>
+                                                <form method="POST"
+                                                      action="{% url 'delete_student' student.student_id %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger btn-sm">O'chirish
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                                <!-- Add Student Form -->
+                                <div class="mt-4">
+                                    <h5>Yangi Talaba Qo'shish</h5>
+                                    <form method="POST" action="{% url 'add_student' %}">
+                                        {% csrf_token %}
+                                        <div class="form-group">
+                                            <label for="firstname">Ismi:</label>
+                                            <input type="text" id="firstname" name="firstname" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="lastname">Familyasi:</label>
+                                            <input type="text" id="lastname" name="lastname" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="email">Email:</label>
+                                            <input type="email" id="email" name="email" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="student_id">Talaba ID:</label>
+                                            <input type="text" id="student_id" name="student_id" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="photo">Rasm URL:</label>
+                                            <input type="text" id="photo" name="photo" class="form-control" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">Qo'shish</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Teachers Table -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>O'qituvchilar</h4>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Rasm</th>
-                                    <th>Ismi</th>
-                                    <th>Familyasi</th>
-                                    <th>Email</th>
-                                    <th>Username</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for teacher in teacher_data %}
-                                <tr>
-                                    <td><img src="{{ teacher.photo }}" alt="Profile Image" class="profile-image"></td>
-                                    <td>{{ teacher.firstname }}</td>
-                                    <td>{{ teacher.lastname }}</td>
-                                    <td>{{ teacher.email }}</td>
-                                    <td>{{ teacher.username }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <!-- Teachers Table -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>O'qituvchilar</h4>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-bordered">
+                                    <thead>
+                                    <tr>
+                                        <th>Rasm</th>
+                                        <th>Ismi</th>
+                                        <th>Familyasi</th>
+                                        <th>Email</th>
+                                        <th>Username</th>
+                                        <th>Harakatlar</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for teacher in teacher_data %}
+                                        <tr>
+                                            <td><img src="{{ teacher.photo }}" alt="Profile Image"
+                                                     class="profile-image"></td>
+                                            <td>{{ teacher.firstname }}</td>
+                                            <td>{{ teacher.lastname }}</td>
+                                            <td>{{ teacher.email }}</td>
+                                            <td>{{ teacher.teacher_id }}</td>
+                                            <td>
+                                                <form method="POST"
+                                                      action="{% url 'delete_teacher' teacher.teacher_id %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-danger btn-sm">O'chirish
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                                <!-- Add Teacher Form -->
+                                <div class="mt-4">
+                                    <h5>Yangi O'qituvchi Qo'shish</h5>
+                                    <form method="POST" action="{% url 'add_teacher' %}">
+                                        {% csrf_token %}
+                                        <div class="form-group">
+                                            <label for="firstname">Ismi:</label>
+                                            <input type="text" id="firstname" name="firstname" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="lastname">Familyasi:</label>
+                                            <input type="text" id="lastname" name="lastname" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="email">Email:</label>
+                                            <input type="email" id="email" name="email" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="username">Username:</label>
+                                            <input type="text" id="username" name="username" class="form-control"
+                                                   required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="photo">Rasm URL:</label>
+                                            <input type="text" id="photo" name="photo" class="form-control" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success">Qo'shish</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
